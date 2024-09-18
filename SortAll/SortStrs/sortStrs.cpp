@@ -1,7 +1,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <time.h>
+
+#define MAX_STR_LEN 100  // 每个字符串的最大长度
+#define MAX_STR_COUNT 100  // 最大字符串数量
 
 // 定义一个字符串数组结构体，用于存储字符串和长度
 typedef struct Sqlist
@@ -10,37 +12,39 @@ typedef struct Sqlist
     int length;     // 记录字符串数组长度
 } Sqlist;
 
-// 生成指定长度的随机字符串
-void generateRandomString(char *str, int length)
+// 初始化字符串数组，读取文件中的字符串
+void initArrayFromFile(Sqlist *L, const char *filename)
 {
-    for (int i = 0; i < length - 1; i++)
+    FILE *file = fopen(filename, "r");
+    if (file == NULL)
     {
-        str[i] = 'A' + rand() % 26; // 生成 A-Z 之间的随机字符
+        perror("无法打开文件");
+        exit(EXIT_FAILURE);
     }
-    str[length - 1] = '\0'; // 字符串结束符
-}
 
-// 初始化字符串数组，生成 `count` 个字符串，每个字符串长度为 `strLength`
-void initArray(Sqlist *L, int count, int strLength)
-{
-    L->length = count;                                    // 初始化数组长度
-    L->strings = (char **)malloc(count * sizeof(char *)); // 为字符串指针数组分配内存
-    srand(time(NULL));
+    L->strings = (char **)malloc(MAX_STR_COUNT * sizeof(char *)); // 为字符串指针数组分配内存
+    char buffer[MAX_STR_LEN];
+    int count = 0;
 
-    for (int i = 0; i < count; i++)
+    while (fgets(buffer, MAX_STR_LEN, file) != NULL)
     {
-        L->strings[i] = (char *)malloc(strLength * sizeof(char)); // 为每个字符串分配内存
-        generateRandomString(L->strings[i], strLength);           // 生成随机字符串
+        buffer[strcspn(buffer, "\n")] = 0; // 去除换行符
+        L->strings[count] = (char *)malloc(strlen(buffer) + 1); // 分配内存给每个字符串
+        strcpy(L->strings[count], buffer); // 复制字符串
+        count++;
     }
+
+    L->length = count; // 设置字符串数量
+    fclose(file); // 关闭文件
 }
 
 // 找出字符串数组中 l 到 r 之间最小的字符串，并返回其下标
 int findMin(Sqlist *L, int l, int r)
 {
-    int minIndex = l; // 初始化最小字符串的下标
+    int minIndex = l;
     for (int i = l + 1; i <= r; i++)
     {
-        if (strcmp(L->strings[i], L->strings[minIndex]) < 0) // 使用 strcmp 比较字符串
+        if (strcmp(L->strings[i], L->strings[minIndex]) < 0)
         {
             minIndex = i;
         }
@@ -56,48 +60,43 @@ void Swap(char **a, char **b)
     *b = temp;
 }
 
-// 选择排序，用于对字符串数组进行排序
-void selectSort(Sqlist *L)
-{
-    for (int i = 0; i < L->length - 1; i++)
-    {
-        int minNum = findMin(L, i, L->length - 1); // 找到 l 到 L->length 之间最小的字符串下标
-        if (minNum != i)
-        {
-            Swap(&(L->strings[minNum]), &(L->strings[i]));
-        }
-    }
-}
-
 // 希尔排序，用于对字符串数组进行排序
 void shellSort(Sqlist *L)
 {
-    int gap = L->length; // 初始间隔为数组长度
+    int gap = L->length;
     while (gap > 1)
     {
-        gap /= 2;                             // 间隔减半
-        for (int i = gap; i < L->length; i++) // 从 gap 开始
+        gap /= 2;
+        for (int i = gap; i < L->length; i++)
         {
-            char *temp = L->strings[i]; // 暂存要插入的字符串
+            char *temp = L->strings[i];
             int j = i;
-            while (j >= gap && strcmp(L->strings[j - gap], temp) > 0) // 使用 strcmp 按 gap 比较字符串
+            while (j >= gap && strcmp(L->strings[j - gap], temp) > 0)
             {
-                L->strings[j] = L->strings[j - gap]; // 后移字符串
+                L->strings[j] = L->strings[j - gap];
                 j -= gap;
             }
-            L->strings[j] = temp; // 插入正确位置
+            L->strings[j] = temp;
         }
     }
 }
 
-// 输出字符串数组
-void outPut(Sqlist *L)
+// 输出字符串数组到文件
+void outputToFile(Sqlist *L, const char *filename)
 {
+    FILE *file = fopen(filename, "w");
+    if (file == NULL)
+    {
+        perror("无法打开文件");
+        exit(EXIT_FAILURE);
+    }
+
     for (int i = 0; i < L->length; i++)
     {
-        printf("%s\n", L->strings[i]);
+        fprintf(file, "%s\n", L->strings[i]);
     }
-    printf("\n");
+
+    fclose(file);
 }
 
 // 释放内存
@@ -105,29 +104,28 @@ void freeArray(Sqlist *L)
 {
     for (int i = 0; i < L->length; i++)
     {
-        free(L->strings[i]); // 释放每个字符串的内存
+        free(L->strings[i]);
     }
-    free(L->strings); // 释放字符串指针数组的内存
+    free(L->strings);
 }
 
 int main()
 {
-    Sqlist L;                             // 声明结构体
-    initArray(&L, 10, 6);                 // 初始化字符串数组，生成 10 个长度为 6 的字符串
+    Sqlist L;
 
-    // 输出排序前的字符串数组
-    printf("Strings before sorting:\n");
-    outPut(&L);
+    // 从文件中读取字符串
+    const char *inputFile = "input.txt";
+    const char *outputFile = "output.txt";
+    initArrayFromFile(&L, inputFile);
 
-    // 排序
-    // selectSort(&L);
+    // 对字符串进行排序
     shellSort(&L);
 
-    // 输出排序后的字符串数组
-    printf("Strings after sorting:\n");
-    outPut(&L);
+    // 将排序后的字符串输出到文件
+    outputToFile(&L, outputFile);
 
-    // 释放内存空间
+    // 释放内存
     freeArray(&L);
+
     return 0;
 }
